@@ -34,6 +34,8 @@ def parse_args():
 
 	parser.add_argument("--resume_from_stats", default="", help="Resume training from the previous stats file")
 
+	parser.add_argument("--range", default="", help="Range of scenes to use")
+
 	args = parser.parse_args()
 	return args
 
@@ -52,8 +54,17 @@ if __name__ == "__main__":
 		"trained": [],
 	}
 
+	scene_sort_func = lambda x: int(x.split("_")[1]) * 100 + int(x.split("_")[2])
+
 	scenes = os.listdir(args.hypersim_path)
 	scenes = [s for s in scenes if os.path.isdir(os.path.join(args.hypersim_path, s))]
+	scenes = sorted(scenes, key=scene_sort_func)
+
+	if args.range:
+		print('Using scene {}'.format(args.range))
+		scene_range = range(int(args.range.split("-")[0]), int(args.range.split("-")[1]) + 1)
+		scenes = [s for s in scenes if int(s.split('_')[1]) in scene_range]
+
 	scenes_needs_training = [s for s in scenes]
 	scenes_trained = []
 
