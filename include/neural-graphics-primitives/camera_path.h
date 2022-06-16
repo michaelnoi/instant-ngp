@@ -95,6 +95,7 @@ struct CameraPath {
 void add_debug_line(ImDrawList* list, const Eigen::Matrix<float, 4, 4>&proj, Eigen::Vector3f a, Eigen::Vector3f b, uint32_t col=0xffffffff, float thickness=1.f);
 void visualize_unit_cube(ImDrawList* list, const Eigen::Matrix<float, 4, 4>& world2proj);
 void visualize_nerf_camera(ImDrawList* list, const Eigen::Matrix<float, 4, 4>& world2proj, const Eigen::Matrix<float, 3, 4>& xform, float aspect, uint32_t col = 0x80ffffff);
+void visualize_nerf_bbox(ImDrawList* list, const Eigen::Matrix<float, 4, 4>& world2proj, const Eigen::Matrix<float, 8, 3>& bbox, uint32_t col = 0x80ffffff);
 #endif
 
 NGP_NAMESPACE_END

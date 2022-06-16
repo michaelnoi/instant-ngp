@@ -73,10 +73,13 @@ struct NerfDataset {
 	Eigen::Vector2i sharpness_resolution = {0, 0};
 	tcnn::GPUMemory<float> envmap_data;
 
+	std::vector<Eigen::Matrix<float, 8, 3>> bounding_boxes;
+
 	BoundingBox render_aabb = {};
 	Eigen::Vector3f up = {0.0f, 1.0f, 0.0f};
 	Eigen::Vector3f offset = {0.0f, 0.0f, 0.0f};
 	size_t n_images = 0;
+	size_t n_bboxes = 0;
 	Eigen::Vector2i envmap_resolution = {0, 0};
 	float scale = 1.0f;
 	int aabb_scale = 1;
@@ -156,6 +159,24 @@ struct NerfDataset {
 		ray.d[0] = ray.d[1];
 		ray.d[1] = ray.d[2];
 		ray.d[2] = tmp;
+	}
+
+	Eigen::Matrix<float, 8, 3> construct_bbox(const Eigen::Matrix<float, 3, 4> &nerf_xform, const Eigen::Vector3f &extents) {
+		auto xform = nerf_matrix_to_ngp(nerf_xform);
+		Eigen::Matrix<float, 8, 3> bbox;
+		bbox.row(0) = Eigen::RowVector3f(extents(0), extents(1), extents(2));
+		bbox.row(1) = Eigen::RowVector3f(extents(0), extents(1), -extents(2));
+		bbox.row(2) = Eigen::RowVector3f(extents(0), -extents(1), -extents(2));
+		bbox.row(3) = Eigen::RowVector3f(extents(0), -extents(1), extents(2));
+		bbox.row(4) = Eigen::RowVector3f(-extents(0), extents(1), extents(2));
+		bbox.row(5) = Eigen::RowVector3f(-extents(0), extents(1), -extents(2));
+		bbox.row(6) = Eigen::RowVector3f(-extents(0), -extents(1), -extents(2));
+		bbox.row(7) = Eigen::RowVector3f(-extents(0), -extents(1), extents(2));
+
+		bbox *= 0.5f;
+		bbox = bbox * xform.block(0, 0, 3, 3).transpose();
+		bbox.rowwise() += xform.col(3).transpose();
+		return bbox;
 	}
 };
 

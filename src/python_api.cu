@@ -472,6 +472,7 @@ PYBIND11_MODULE(pyngp, m) {
 		.def_readwrite("rendering_min_transmittance", &Testbed::Nerf::rendering_min_transmittance)
 		.def_readwrite("cone_angle_constant", &Testbed::Nerf::cone_angle_constant)
 		.def_readwrite("visualize_cameras", &Testbed::Nerf::visualize_cameras)
+		.def_readwrite("visualize_bounding_boxes", &Testbed::Nerf::visualize_bounding_boxes)
 		;
 
 	py::class_<BRDFParams> brdfparams(m, "BRDFParams");

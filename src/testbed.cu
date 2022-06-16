@@ -56,12 +56,9 @@
 
 #endif
 
-// Windows.h is evil
+
 #undef min
 #undef max
-#undef near
-#undef far
-
 
 using namespace Eigen;
 using namespace std::literals::chrono_literals;
@@ -390,7 +387,7 @@ void Testbed::imgui() {
 
 	ImGui::Begin("instant-ngp v" NGP_VERSION);
 
-	size_t n_bytes = tcnn::total_n_bytes_allocated() + g_total_n_bytes_allocated + dlss_allocated_bytes();
+	size_t n_bytes = tcnn::total_n_bytes_allocated() + g_total_n_bytes_allocated;
 	ImGui::Text("Frame: %.2f ms (%.1f FPS); Mem: %s", m_frame_ms.ema_val(), 1000.0f / m_frame_ms.ema_val(), bytes_to_string(n_bytes).c_str());
 	bool accum_reset = false;
 
@@ -692,6 +689,7 @@ void Testbed::imgui() {
 			if (m_testbed_mode == ETestbedMode::Nerf) {
 				ImGui::SameLine();
 				ImGui::Checkbox("Visualize cameras", &m_nerf.visualize_cameras);
+				ImGui::Checkbox("Visualize object bounding boxes", &m_nerf.visualize_bounding_boxes);
 				accum_reset |= ImGui::SliderInt("Show acceleration", &m_nerf.show_accel, -1, 7);
 			}
 
@@ -1018,6 +1016,17 @@ void Testbed::visualize_nerf_cameras(ImDrawList* list, const Matrix<float, 4, 4>
 	}
 }
 
+void Testbed::visualize_nerf_bboxes(ImDrawList* list, const Matrix<float, 4, 4>& world2proj) {
+
+	std::cout << "Nerf bbox:" << std::endl << m_nerf.training.dataset.bounding_boxes[0] << std::endl << std::endl;
+
+	for (int i = 0; i < m_nerf.training.dataset.n_bboxes; ++i) {
+		uint32_t r = (i * 1399 + 17) % 255, g = (i * 719 + 23) % 255, b = (i * 1913 + 11) % 255, a = 0xff;
+		uint32_t color = (a << 24) | (b << 16) | (g << 8) | r;
+		visualize_nerf_bbox(list, world2proj, m_nerf.training.dataset.bounding_boxes[i], color);
+	}
+}
+
 void Testbed::draw_visualizations(ImDrawList* list, const Matrix<float, 3, 4>& camera_matrix) {
 	// Visualize 3D cameras for SDF or NeRF use cases
 	if (m_testbed_mode != ETestbedMode::Image) {
@@ -1043,6 +1052,9 @@ void Testbed::draw_visualizations(ImDrawList* list, const Matrix<float, 3, 4>& c
 		if (m_testbed_mode == ETestbedMode::Nerf) {
 			if (m_nerf.visualize_cameras) {
 				visualize_nerf_cameras(list, world2proj);
+			}
+			if (m_nerf.visualize_bounding_boxes) {
+				visualize_nerf_bboxes(list, world2proj);
 			}
 		}
 

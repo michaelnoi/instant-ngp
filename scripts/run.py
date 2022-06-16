@@ -13,15 +13,21 @@ import os
 import commentjson as json
 
 import numpy as np
+import cv2
 
 import sys
 import time
+from random import randint
+import logging
 
 from common import *
 from scenes import scenes_nerf, scenes_image, scenes_sdf, scenes_volume, setup_colored_sdf
+from render_bbox import render_bbox_overlay, nerf_matrix_to_ngp
 
 from tqdm import tqdm
 
+pyngp_path = '../build'
+sys.path.append(pyngp_path)
 import pyngp as ngp # noqa
 
 
@@ -56,9 +62,39 @@ def parse_args():
 
 	parser.add_argument("--sharpen", default=0, help="Set amount of sharpening applied to NeRF training images.")
 
+	parser.add_argument("--show_bbox", action="store_true", help="Show bounding boxes (if provided) of the objects in the rendered images.")
+
+	parser.add_argument("--save_log", default="", help="Save the log to this file.")
 
 	args = parser.parse_args()
 	return args
+
+
+def get_world_to_proj_matrix(camera_matrix, testbed, ref_transforms):
+	scale = testbed.nerf.training.dataset.scale
+	offset = testbed.nerf.training.dataset.offset
+
+	view2world = np.eye(4)
+	view2world[:-1, :] = nerf_matrix_to_ngp(camera_matrix[:-1, :], scale, offset)
+
+	w = args.width or int(ref_transforms["w"])
+	h = args.height or int(ref_transforms["h"])
+
+	focal = ref_transforms['fl_y'] / h if testbed.fov_axis == 1 else ref_transforms['fl_x'] / w
+	zscale = 1.0 / focal
+	xyscale = h if testbed.fov_axis == 1 else w
+
+	view2proj = np.array([
+		[xyscale, 0, w * 0.5 * zscale, 0],
+		[0, xyscale, h * 0.5 * zscale, 0],
+		[0, 0, 1, 0],
+		[0, 0, zscale, 0]
+	])
+
+	world2view = np.linalg.inv(view2world)
+	world2proj = view2proj @ world2view
+
+	return world2proj
 
 
 if __name__ == "__main__":
@@ -126,6 +162,13 @@ if __name__ == "__main__":
 		with open(args.screenshot_transforms) as f:
 			ref_transforms = json.load(f)
 
+	bounding_boxes = None
+	if args.show_bbox:
+		testbed.nerf.visualize_bounding_boxes = True
+		transforms_file = args.scene if args.scene.endswith(".json") else os.path.join(args.scene, "transforms.json")
+		with open(transforms_file) as f:
+			bounding_boxes = json.load(f)['bounding_boxes']
+
 	if args.gui:
 		# Pick a sensible GUI resolution depending on arguments.
 		sw = args.width or 1920
@@ -176,6 +219,10 @@ if __name__ == "__main__":
 	if n_steps < 0:
 		n_steps = 100000
 
+	if args.save_log:
+		log_file = args.save_log
+		logging.basicConfig(filename=log_file, filemode='w', level=logging.INFO)
+
 	tqdm_last_update = 0
 	if n_steps > 0:
 		with tqdm(desc="Training", total=n_steps, unit="step") as t:
@@ -200,6 +247,9 @@ if __name__ == "__main__":
 					t.set_postfix(loss=testbed.loss)
 					old_training_step = testbed.training_step
 					tqdm_last_update = now
+
+					if args.save_log:
+						logging.info(f"{testbed.training_step} {testbed.loss}")
 
 	if args.save_snapshot:
 		print("Saving snapshot ", args.save_snapshot)
@@ -306,20 +356,36 @@ if __name__ == "__main__":
 			if not args.screenshot_frames:
 				args.screenshot_frames = range(len(ref_transforms["frames"]))
 			print(args.screenshot_frames)
-			for idx in args.screenshot_frames:
-				f = ref_transforms["frames"][int(idx)]
-				cam_matrix = f["transform_matrix"]
-				testbed.set_nerf_camera_matrix(np.matrix(cam_matrix)[:-1,:])
-				outname = os.path.join(args.screenshot_dir, os.path.basename(f["file_path"]))
 
-				# Some NeRF datasets lack the .png suffix in the dataset metadata
-				if not os.path.splitext(outname)[1]:
-					outname = outname + ".png"
+			with tqdm(args.screenshot_frames, unit="images", desc="Rendering") as t:
+				for idx in t:
+					f = ref_transforms["frames"][int(idx)]
+					cam_matrix = f["transform_matrix"]
+					testbed.set_nerf_camera_matrix(np.matrix(cam_matrix)[:-1,:])
+					outname = os.path.join(args.screenshot_dir, os.path.basename(f["file_path"]))
 
-				print(f"rendering {outname}")
-				image = testbed.render(args.width or int(ref_transforms["w"]), args.height or int(ref_transforms["h"]), args.screenshot_spp, True)
-				os.makedirs(os.path.dirname(outname), exist_ok=True)
-				write_image(outname, image)
+					# Some NeRF datasets lack the .png suffix in the dataset metadata
+					if not os.path.splitext(outname)[1]:
+						outname = outname + ".png"
+
+					# print(f"rendering {outname}")
+					t.set_postfix(name=os.path.basename(outname))
+					image = testbed.render(args.width or int(ref_transforms["w"]), args.height or int(ref_transforms["h"]), args.screenshot_spp, True)
+					os.makedirs(os.path.dirname(outname), exist_ok=True)
+					write_image(outname, image)
+
+					if args.show_bbox:
+						world2proj = get_world_to_proj_matrix(np.matrix(cam_matrix), testbed, ref_transforms)
+						cv_img = cv2.imread(outname)
+						scale = testbed.nerf.training.dataset.scale
+						offset = np.array(testbed.nerf.training.dataset.offset)
+						
+						for bbox in bounding_boxes:
+							color = (randint(0,255), randint(0,255), randint(0,255))
+							render_bbox_overlay(cv_img, world2proj, scale, offset, bbox, color, 1)
+
+						cv2.imwrite(outname, cv_img)
+
 		elif args.screenshot_dir:
 			outname = os.path.join(args.screenshot_dir, args.scene + "_" + network_stem)
 			print(f"Rendering {outname}.png")

@@ -676,6 +676,31 @@ NerfDataset load_nerf(const std::vector<filesystem::path>& jsonpaths, float shar
 			image_idx += json["frames"].size();
 		}
 
+		if (json.contains("bounding_boxes")) {
+			result.n_bboxes = json["bounding_boxes"].size();
+			result.bounding_boxes.resize(result.n_bboxes);
+
+			pool.parallelForAsync<size_t>(0, json["bounding_boxes"].size(), [&](size_t i) {
+				auto& bb = json["bounding_boxes"][i];
+				auto& bb_extents = bb["extents"];
+				auto& bb_orientation = bb["orientation"];
+				auto& bb_pos = bb["position"];
+
+				Eigen::Matrix<float, 3, 4> xforms;
+				for (int m = 0; m < 3; ++m) {
+					for (int n = 0; n < 3; ++n) {
+						xforms(m, n) = float(bb_orientation[m][n]);
+					}
+				}
+
+				xforms.col(3) = Vector3f(float(bb_pos[0]), float(bb_pos[1]), float(bb_pos[2]));
+				Vector3f extents{float(bb_extents[0]), float(bb_extents[1]), float(bb_extents[2])};
+				extents *= result.scale;
+
+				result.bounding_boxes[i] = result.construct_bbox(xforms, extents);
+			}, futures);
+		}
+
 	}
 
 	waitAll(futures);
