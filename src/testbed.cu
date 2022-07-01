@@ -1018,7 +1018,7 @@ void Testbed::visualize_nerf_cameras(ImDrawList* list, const Matrix<float, 4, 4>
 
 void Testbed::visualize_nerf_bboxes(ImDrawList* list, const Matrix<float, 4, 4>& world2proj) {
 
-	std::cout << "Nerf bbox:" << std::endl << m_nerf.training.dataset.bounding_boxes[0] << std::endl << std::endl;
+	// std::cout << "Nerf bbox:" << std::endl << m_nerf.training.dataset.bounding_boxes[0] << std::endl << std::endl;
 
 	for (int i = 0; i < m_nerf.training.dataset.n_bboxes; ++i) {
 		uint32_t r = (i * 1399 + 17) % 255, g = (i * 719 + 23) % 255, b = (i * 1913 + 11) % 255, a = 0xff;

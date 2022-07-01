@@ -672,6 +672,19 @@ __global__ void compute_nerf_density(const uint32_t n_elements, Array4f* network
 	network_output[i] = rgba;
 }
 
+__global__ void compute_nerf_raw_rgba(const uint32_t n_elements, Array4f* network_output, ENerfActivation rgb_activation, ENerfActivation density_activation) {
+	const uint32_t i = threadIdx.x + blockIdx.x * blockDim.x;
+	if (i >= n_elements) return;
+
+	Array4f rgba = network_output[i];
+	rgba.w() = tcnn::clamp(1.f - __expf(-network_to_density(rgba.w(), density_activation) / 100.0f), 0.0f, 1.0f);
+	rgba.x() = network_to_rgb(rgba.x(), rgb_activation);
+	rgba.y() = network_to_rgb(rgba.y(), rgb_activation);
+	rgba.z() = network_to_rgb(rgba.z(), rgb_activation);
+
+	network_output[i] = rgba;
+}
+
 __global__ void generate_next_nerf_network_inputs(
 	const uint32_t n_elements,
 	BoundingBox render_aabb,
@@ -3389,6 +3402,32 @@ GPUMemory<Eigen::Array4f> Testbed::get_rgba_on_grid(Vector3i res3d, Eigen::Vecto
 
 		// convert network output to RGBA (in place)
 		linear_kernel(compute_nerf_density, 0, m_inference_stream, local_batch_size, rgba.data() + offset, m_nerf.rgb_activation, m_nerf.density_activation);
+	}
+	return rgba;
+}
+
+GPUMemory<Eigen::Array4f> Testbed::get_raw_rgba_on_grid(Vector3i res3d, Eigen::Vector3f ray_dir, const BoundingBox& aabb) {
+	const uint32_t n_elements = (res3d.x()*res3d.y()*res3d.z());
+	GPUMemory<Eigen::Array4f> rgba(n_elements);
+	GPUMemory<NerfCoordinate> positions(n_elements);
+	const uint32_t batch_size = std::min(n_elements, 1u<<20);
+
+	// generate inputs
+	const dim3 threads = { 16, 8, 1 };
+	const dim3 blocks = { div_round_up((uint32_t)res3d.x(), threads.x), div_round_up((uint32_t)res3d.y(), threads.y), div_round_up((uint32_t)res3d.z(), threads.z) };
+	generate_grid_samples_nerf_uniform_dir<<<blocks, threads, 0, m_inference_stream>>>(res3d, m_nerf.density_grid_ema_step, aabb, m_aabb, ray_dir, positions.data());
+
+	// Only process 1m elements at a time
+	for (uint32_t offset = 0; offset < n_elements; offset += batch_size) {
+		uint32_t local_batch_size = std::min(n_elements - offset, batch_size);
+
+		// run network
+		GPUMatrix<float> positions_matrix((float*) (positions.data() + offset), sizeof(NerfCoordinate)/sizeof(float), local_batch_size);
+		GPUMatrix<float> rgbsigma_matrix((float*) (rgba.data() + offset), 4, local_batch_size);
+		m_network->inference(m_inference_stream, positions_matrix, rgbsigma_matrix);
+
+		// convert network output to RGBA (in place)
+		linear_kernel(compute_nerf_raw_rgba, 0, m_inference_stream, local_batch_size, rgba.data() + offset, m_nerf.rgb_activation, m_nerf.density_activation);
 	}
 	return rgba;
 }

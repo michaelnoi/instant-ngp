@@ -153,7 +153,7 @@ def create_validation_json(json_head, img_names, xforms, num_train_samples, num_
     num_train_samples = min(num_train_samples, len(img_names))
     train_samples = random.sample(range(len(img_names)), num_train_samples)
 
-    for i in range(len(train_samples)):
+    for i in train_samples:
         json_dict["frames"].append({
             "file_path": img_names[i],
             "transform_matrix": xforms[i].tolist()
@@ -182,6 +182,9 @@ def create_json_from_hypersim(scene_path, metadata_path, use_all_cameras=False, 
 
     camera_metadata = pd.read_csv(os.path.join(scene_path, '_detail', 'metadata_cameras.csv'))
     camera_names = camera_metadata['camera_name'].tolist()
+    camera_names = [c for c in camera_names 
+                    if os.path.exists(os.path.join(scene_path, '_detail', c)) 
+                    and os.path.exists(os.path.join(scene_path, 'images', 'scene_{}_final_preview'.format(c)))]
 
     camera_paths = []
     img_paths = []
@@ -203,17 +206,20 @@ def create_json_from_hypersim(scene_path, metadata_path, use_all_cameras=False, 
         img_names = collect_hypersim_images(img_path, output_path=os.path.join(output_path, 'images'))
     else:
         transform_matrices = []
+        num_xforms = []
         img_names = []
+
         for i in range(len(camera_names)):
             imgs = collect_hypersim_images(img_paths[i], camera_names[i] + '.', 
                                            output_path=os.path.join(output_path, 'images'))
 
             xforms = load_hypersim_trajectory(camera_paths[i])
-            if len(imgs) != len(xforms):
-                # Some images are missing, filter out corresponding transforms
-                labels = [int(img.split('.')[2]) for img in imgs]
-                xforms = [xform for i, xform in enumerate(xforms) if i in labels]
+            # if len(imgs) != len(xforms):
+            #     # Some images are missing, filter out corresponding transforms
+            #     labels = [int(img.split('.')[2]) for img in imgs]
+            #     xforms = [xform for i, xform in enumerate(xforms) if i in labels]
 
+            num_xforms.append(len(transform_matrices))
             transform_matrices += xforms
             img_names += imgs
 
@@ -224,6 +230,7 @@ def create_json_from_hypersim(scene_path, metadata_path, use_all_cameras=False, 
         transform_matrices = [transform_matrices[i] for i in sampled]
         img_names = [img_names[i] for i in sampled]
 
+    # TODO: Only compute xform based on transform matrices which actually have corresponding images
     xform = transform_hypersim_trajectory(transform_matrices)
     extents, orientation, pos = get_bounding_boxes(mesh_path, xform)
 
@@ -249,7 +256,11 @@ def create_json_from_hypersim(scene_path, metadata_path, use_all_cameras=False, 
         val_json = create_validation_json(json_dict, img_names, transform_matrices, num_train_samples, num_val_samples)
 
     for i in range(len(img_names)):
-        frame_idx = int(img_names[i].split('.')[1])
+        frame_idx = int(img_names[i].split('.')[1]) if not use_all_cameras else int(img_names[i].split('.')[2])
+        if use_all_cameras:
+            camera_idx = camera_names.index(img_names[i].split('.')[0])
+            frame_idx += num_xforms[camera_idx]
+
         json_dict["frames"].append({
             "file_path": os.path.join('images', img_names[i]),
             "transform_matrix": transform_matrices[frame_idx].tolist()

@@ -120,6 +120,55 @@ pybind11::dict Testbed::compute_marching_cubes_mesh(Eigen::Vector3i res3d, Bound
 	return py::dict("V"_a=cpuverts, "N"_a=cpunormals, "C"_a=cpucolors, "F"_a=cpuindices);
 }
 
+py::array_t<float> Testbed::compute_density_on_grid(Eigen::Vector3i res3d, BoundingBox& aabb) {
+	if (aabb.is_empty()) {
+		aabb = m_testbed_mode == ETestbedMode::Nerf ? m_render_aabb : m_aabb;
+	}
+
+	tcnn::GPUMemory<float> density = get_density_on_grid(res3d, aabb);
+	std::vector<float> density_cpu(density.size());
+	density.copy_to_host(density_cpu);
+
+	py::array_t<float> result({(int)density_cpu.size(), 1});
+	py::buffer_info buf = result.request();
+
+	float *dst = static_cast<float *>(buf.ptr);
+	std::memcpy(dst, density_cpu.data(), density_cpu.size() * sizeof(float));
+	return result;
+}
+
+py::array_t<float> Testbed::compute_rgba_on_grid(Eigen::Vector3i res3d, Eigen::Vector3f ray_dir, BoundingBox& aabb) {
+	if (aabb.is_empty()) {
+		aabb = m_testbed_mode == ETestbedMode::Nerf ? m_render_aabb : m_aabb;
+	}
+
+	tcnn::GPUMemory<Array4f> rgba = get_raw_rgba_on_grid(res3d, ray_dir, aabb);
+	std::vector<Array4f> rgba_cpu(rgba.size());
+	rgba.copy_to_host(rgba_cpu);
+
+	py::array_t<float> result({(int)rgba_cpu.size(), 4});
+	py::buffer_info buf = result.request();
+
+	float *dst = static_cast<float *>(buf.ptr);
+	uint32_t w = res3d.x();
+	uint32_t h = res3d.y();
+
+	ThreadPool{}.parallelFor<int>(0, res3d.z(), [&](int z) {
+		float *dst_z = dst + z * w * h * 4;
+		for (int y = 0; y < h; ++y) {
+			for (int x = 0; x < w; ++x) {
+				size_t i = x + y*res3d.x() + z*res3d.x()*res3d.y();
+				*dst_z++ = tcnn::clamp(rgba_cpu[i].x(), 0.0f, 1.0f);
+				*dst_z++ = tcnn::clamp(rgba_cpu[i].y(), 0.0f, 1.0f);
+				*dst_z++ = tcnn::clamp(rgba_cpu[i].z(), 0.0f, 1.0f);
+				*dst_z++ = tcnn::clamp(rgba_cpu[i].w(), 0.0f, 1.0f);
+			}
+		}
+	});
+
+	return result;
+}
+
 py::array_t<float> Testbed::render_to_cpu(int width, int height, int spp, bool linear, float start_time, float end_time, float fps, float shutter_fraction) {
 	m_windowless_render_surface.resize({width, height});
 	m_windowless_render_surface.reset_accumulation();
@@ -397,6 +446,21 @@ PYBIND11_MODULE(pyngp, m) {
 			"`thresh` is the density threshold; use 0 for SDF; 2.5 works well for NeRF. "
 			"If the aabb parameter specifies an inside-out (\"empty\") box (default), the current render_aabb bounding box is used."
 		)
+		.def("compute_density_on_grid", &Testbed::compute_density_on_grid,
+			py::arg("resolution") = Eigen::Vector3i::Constant(256),
+			py::arg("aabb") = BoundingBox{},
+			"Compute a density field on a grid from the current SDF or NeRF model. "
+			"Returns a numpy array with the density values. "
+			"If the aabb parameter specifies an inside-out (\"empty\") box (default), the current render_aabb bounding box is used."
+		)
+		.def("compute_rgba_on_grid", &Testbed::compute_rgba_on_grid,
+			py::arg("resolution") = Eigen::Vector3i::Constant(256),
+			py::arg("ray_dir") = Eigen::Vector3f::Zero(),
+			py::arg("aabb") = BoundingBox{},
+			"Compute an RGBA field on a grid from the current NeRF model. "
+			"Returns a numpy array with the RGBA values. "
+			"If the aabb parameter specifies an inside-out (\"empty\") box (default), the current render_aabb bounding box is used."
+		)
 		;
 
 	// Interesting members.
@@ -510,6 +574,7 @@ PYBIND11_MODULE(pyngp, m) {
 		.def_readonly("aabb_scale", &NerfDataset::aabb_scale)
 		.def_readonly("from_mitsuba", &NerfDataset::from_mitsuba)
 		.def_readonly("is_hdr", &NerfDataset::is_hdr)
+		.def("nerf_matrix_to_ngp", &NerfDataset::nerf_matrix_to_ngp)
 		;
 
 	py::class_<Testbed::Nerf::Training>(nerf, "Training")
