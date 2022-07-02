@@ -82,7 +82,7 @@ def get_scene_bounding_box(dataset, json_dict, margin=0.1):
     return min_pt, max_pt
 
 
-def get_scene_config(path, testbed, margin=0.1):
+def get_scene_config(path, testbed, use_dynamic_res=False, margin=0.1):
     dataset = testbed.nerf.training.dataset
 
     with open(path) as f:
@@ -90,8 +90,10 @@ def get_scene_config(path, testbed, margin=0.1):
         cam_matrices = [np.array(x['transform_matrix']) for x in json_dict['frames']]
         min_pt, max_pt = get_scene_bounding_box(dataset, json_dict, margin)
         scene_bbox = ngp.BoundingBox(min_pt, max_pt).intersection(testbed.aabb)
-        min_pt, max_pt = min(scene_bbox.min), max(scene_bbox.max)
-        scene_bbox = ngp.BoundingBox([min_pt] * 3, [max_pt] * 3)
+
+        if not use_dynamic_res:
+            min_pt, max_pt = min(scene_bbox.min), max(scene_bbox.max)
+            scene_bbox = ngp.BoundingBox([min_pt] * 3, [max_pt] * 3)
 
     ngp_cams = [dataset.nerf_matrix_to_ngp(cam_matrix[:-1,:]) for cam_matrix in cam_matrices]
     view_dirs = [cam[:, :3] @ np.array([0, 0, 1]) for cam in ngp_cams]
@@ -155,7 +157,7 @@ if __name__ == "__main__":
         testbed.load_snapshot(os.path.join(args.hypersim_path, scene, 'train', args.snapshot_name))
 
         json_path = os.path.join(args.hypersim_path, scene, 'train', 'transforms.json')
-        scene_bbox, view_dirs, ngp_cams = get_scene_config(json_path, testbed, args.margin)
+        scene_bbox, view_dirs, ngp_cams = get_scene_config(json_path, testbed, args.use_dynamic_res, args.margin)
 
         rgbsigma_mean = None
         for i, view_dir in enumerate(view_dirs):
@@ -167,7 +169,7 @@ if __name__ == "__main__":
 
         output_path = os.path.join(args.output_dir, scene + '.npz')
 
-        np.savez_compressed(output_path, rgbsigma = rgbsigma, 
+        np.savez_compressed(output_path, rgbsigma = rgbsigma, resolution=res,
                             bbox_min=scene_bbox.min, bbox_max=scene_bbox.max,
                             scale=dataset.scale, offset=dataset.offset,
                             from_mitsuba=dataset.from_mitsuba)
