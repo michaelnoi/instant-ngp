@@ -563,6 +563,7 @@ public:
 			bool random_bg_color = true;
 			bool linear_colors = false;
 			ELossType loss_type = ELossType::L2;
+			ELossType depth_loss_type = ELossType::L1;
 			bool snap_to_pixel_centers = true;
 			bool train_envmap = false;
 
@@ -634,6 +635,7 @@ public:
 		CameraDistortion render_distortion = {};
 
 		bool visualize_bounding_boxes = false;
+		float bounding_box_line_width = 2.f;
 
 		float rendering_min_transmittance = 0.01f;
 

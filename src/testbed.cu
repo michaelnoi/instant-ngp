@@ -467,6 +467,7 @@ void Testbed::imgui() {
 			ImGui::SliderFloat("Near distance", &m_nerf.training.near_distance, 0.0f, 1.0f);
 			accum_reset |= ImGui::Checkbox("Linear colors", &m_nerf.training.linear_colors);
 			ImGui::Combo("Loss", (int*)&m_nerf.training.loss_type, LossTypeStr);
+			ImGui::Combo("Depth Loss", (int*)&m_nerf.training.depth_loss_type, LossTypeStr);
 			ImGui::Combo("RGB activation", (int*)&m_nerf.rgb_activation, NerfActivationStr);
 			ImGui::Combo("Density activation", (int*)&m_nerf.density_activation, NerfActivationStr);
 			ImGui::SliderFloat("Cone angle", &m_nerf.cone_angle_constant, 0.0f, 1.0f/128.0f);
@@ -690,6 +691,7 @@ void Testbed::imgui() {
 				ImGui::SameLine();
 				ImGui::Checkbox("Visualize cameras", &m_nerf.visualize_cameras);
 				ImGui::Checkbox("Visualize object bounding boxes", &m_nerf.visualize_bounding_boxes);
+				ImGui::SliderFloat("Bounding box line width", &m_nerf.bounding_box_line_width, 0.f, 10.f);
 				accum_reset |= ImGui::SliderInt("Show acceleration", &m_nerf.show_accel, -1, 7);
 			}
 
@@ -1023,7 +1025,7 @@ void Testbed::visualize_nerf_bboxes(ImDrawList* list, const Matrix<float, 4, 4>&
 	for (int i = 0; i < m_nerf.training.dataset.n_bboxes; ++i) {
 		uint32_t r = (i * 1399 + 17) % 255, g = (i * 719 + 23) % 255, b = (i * 1913 + 11) % 255, a = 0xff;
 		uint32_t color = (a << 24) | (b << 16) | (g << 8) | r;
-		visualize_nerf_bbox(list, world2proj, m_nerf.training.dataset.bounding_boxes[i], color);
+		visualize_nerf_bbox(list, world2proj, m_nerf.training.dataset.bounding_boxes[i], color, m_nerf.bounding_box_line_width);
 	}
 }
 

@@ -284,15 +284,15 @@ void visualize_nerf_camera(ImDrawList* list, const Matrix<float, 4, 4>& world2pr
 	add_debug_line(list, world2proj, d, a, col);
 }
 
-void visualize_nerf_bbox(ImDrawList* list, const Eigen::Matrix<float, 4, 4>& world2proj, const Eigen::Matrix<float, 8, 3>& bbox, uint32_t col) {
+void visualize_nerf_bbox(ImDrawList* list, const Eigen::Matrix<float, 4, 4>& world2proj, const Eigen::Matrix<float, 8, 3>& bbox, uint32_t col, float thickness) {
 	for (int i = 0; i < 4; ++i) {
 		Vector3f a = bbox.row(i).transpose();
 		Vector3f b = bbox.row((i + 1) % 4).transpose();
 		Vector3f c = bbox.row(i + 4).transpose();
 		Vector3f d = bbox.row((i + 1) % 4 + 4).transpose();
-		add_debug_line(list, world2proj, a, b, col, 2.f);
-		add_debug_line(list, world2proj, a, c, col, 2.f);
-		add_debug_line(list, world2proj, c, d, col, 2.f);
+		add_debug_line(list, world2proj, a, b, col, thickness);
+		add_debug_line(list, world2proj, a, c, col, thickness);
+		add_debug_line(list, world2proj, c, d, col, thickness);
 	}
 }
 
