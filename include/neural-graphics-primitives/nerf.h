@@ -36,7 +36,7 @@ struct NerfPayload {
 };
 
 struct RaysNerfSoa {
-#ifdef __NVCC__
+#if defined(__NVCC__) || (defined(__clang__) && defined(__CUDA__))
 	void copy_from_other_async(const RaysNerfSoa& other, cudaStream_t stream) {
 		CUDA_CHECK_THROW(cudaMemcpyAsync(rgba, other.rgba, size * sizeof(Eigen::Array4f), cudaMemcpyDeviceToDevice, stream));
 		CUDA_CHECK_THROW(cudaMemcpyAsync(depth, other.depth, size * sizeof(float), cudaMemcpyDeviceToDevice, stream));
@@ -57,15 +57,20 @@ struct RaysNerfSoa {
 	size_t size;
 };
 
+//#define TRIPLANAR_COMPATIBLE_POSITIONS   // if this is defined, then positions are stored as [x,y,z,x] so that it can be split as [x,y] [y,z] [z,x] by the input encoding
 
 struct NerfPosition {
 	NGP_HOST_DEVICE NerfPosition(const Eigen::Vector3f& pos, float dt)
 	:
 	p{pos}
-	// x{pos.x()}
+#ifdef TRIPLANAR_COMPATIBLE_POSITIONS
+	, x{pos.x()}
+#endif
 	{}
 	Eigen::Vector3f p;
-	// float x;
+#ifdef TRIPLANAR_COMPATIBLE_POSITIONS
+	float x;
+#endif
 };
 
 struct NerfDirection {
