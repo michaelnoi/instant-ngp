@@ -551,6 +551,7 @@ PYBIND11_MODULE(pyngp, m) {
 			py::arg("quantize") = false
 		)
 		.def_readwrite("camera_matrix", &Testbed::m_camera)
+		.def_readonly("smoothed_camera_matrix", &Testbed::m_smoothed_camera)
 		.def_readwrite("up_dir", &Testbed::m_up_dir)
 		.def_readwrite("sun_dir", &Testbed::m_sun_dir)
 		.def_property("look_at", &Testbed::look_at, &Testbed::set_look_at)
@@ -659,7 +660,14 @@ PYBIND11_MODULE(pyngp, m) {
 		.def_readonly("aabb_scale", &NerfDataset::aabb_scale)
 		.def_readonly("from_mitsuba", &NerfDataset::from_mitsuba)
 		.def_readonly("is_hdr", &NerfDataset::is_hdr)
-		.def("nerf_matrix_to_ngp", &NerfDataset::nerf_matrix_to_ngp)
+		.def("nerf_matrix_to_ngp", &NerfDataset::nerf_matrix_to_ngp,
+			 py::arg("nerf_matrix"),
+			 py::arg("scale_columns")=false
+		)
+		.def("ngp_matrix_to_nerf", &NerfDataset::ngp_matrix_to_nerf,
+			 py::arg("ngp_matrix"),
+			 py::arg("scale_columns")=false
+		)
 		;
 
 	py::class_<Testbed::Nerf::Training>(nerf, "Training")

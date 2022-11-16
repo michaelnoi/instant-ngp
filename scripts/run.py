@@ -19,6 +19,7 @@ import shutil
 import time
 from random import randint
 import logging
+import sys
 
 from common import *
 from scenes import *
@@ -410,10 +411,21 @@ if __name__ == "__main__":
 			shutil.rmtree("tmp")
 		os.makedirs("tmp")
 
+		frame_poses = []
+		nerf_dataset = testbed.nerf.training.dataset
+
 		for i in tqdm(list(range(min(n_frames, n_frames+1))), unit="frames", desc=f"Rendering video"):
 			testbed.camera_smoothing = args.video_camera_smoothing
 			frame = testbed.render(resolution[0], resolution[1], args.video_spp, True, float(i)/n_frames, float(i + 1)/n_frames, args.video_fps, shutter_fraction=0.5)
 			write_image(f"tmp/{i:04d}.jpg", np.clip(frame * 2**args.exposure, 0.0, 1.0), quality=100)
+
+			# Save camera poses
+			pose = nerf_dataset.ngp_matrix_to_nerf(testbed.smoothed_camera_matrix)
+			frame_poses.append(pose)
+
+		frame_poses = np.array(frame_poses)
+		pose_dir = os.path.dirname(args.video_camera_path)
+		np.save(os.path.join(pose_dir, 'frame_poses.npy'), frame_poses)
 
 		os.system(f"ffmpeg -y -framerate {args.video_fps} -i tmp/%04d.jpg -c:v libx264 -pix_fmt yuv420p {args.video_output}")
 		shutil.rmtree("tmp")
