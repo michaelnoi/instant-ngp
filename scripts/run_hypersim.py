@@ -11,30 +11,17 @@ def parse_args():
 	parser = argparse.ArgumentParser(description="Create hypersim dataset and train with it, output rendering results.")
 
 	parser.add_argument("--hypersim_path", default="", required=True, help="The path to the hypersim folder containing all scenes")
-
 	parser.add_argument("--metadata_path", default="", required=True, help="The path to the metadata file containing all scenes")
-
 	parser.add_argument("--run_script_path", default="", required=True, help="The path to the run.py script")
-
 	parser.add_argument("--output_path", default="./results", help="The path to the output folder")
 
 	parser.add_argument("--save_snapshot", default="", help="Save this snapshot after training. recommended extension: .msgpack")
-
-	parser.add_argument("--samples_from_train", default=20, type=int, help="The number of validation views from the training set")
-
-	parser.add_argument("--num_val_samples", default=20, type=int, help="The number of interpolated validation views")
-
-	parser.add_argument("--screenshot_spp", type=int, default=16, help="Number of samples per pixel in screenshots.")
-
-	parser.add_argument("--n_steps", type=int, default=-1, help="Number of steps to train for before quitting.")
-
+	parser.add_argument("--samples_from_train", default=10, type=int, help="The number of validation views from the training set")
+	parser.add_argument("--num_val_samples", default=10, type=int, help="The number of interpolated validation views")
+	parser.add_argument("--screenshot_spp", type=int, default=1, help="Number of samples per pixel in screenshots.")
+	parser.add_argument("--n_steps", type=int, default=8000, help="Number of steps to train for before quitting.")
 	parser.add_argument("--use_all_cameras", action="store_true", help="Use all cameras in the scene, not just the first one")
-
 	parser.add_argument("--max_train_samples", type=int, default=None, help="Maximum number of training samples to use")
-
-	parser.add_argument("--resume_from_stats", default="", help="Resume training from the previous stats file")
-
-	parser.add_argument("--range", default="", help="Range of scenes to use")
 
 	args = parser.parse_args()
 	return args
@@ -60,19 +47,8 @@ if __name__ == "__main__":
 	scenes = [s for s in scenes if os.path.isdir(os.path.join(args.hypersim_path, s))]
 	scenes = sorted(scenes, key=scene_sort_func)
 
-	if args.range:
-		print('Using scene {}'.format(args.range))
-		scene_range = range(int(args.range.split("-")[0]), int(args.range.split("-")[1]) + 1)
-		scenes = [s for s in scenes if int(s.split('_')[1]) in scene_range]
-
 	scenes_needs_training = [s for s in scenes]
 	scenes_trained = []
-
-	if args.resume_from_stats:
-		stats_df = pd.read_csv(args.resume_from_stats)
-		prev_stats = stats_df.to_dict('records')
-		scenes_trained = [s["scene_name"] for s in prev_stats if s["trained"]]
-		scenes_needs_training = [s for s in scenes if s not in scenes_trained]
 
 	print("Converting hypersim scenes to json...")
 	for scene in tqdm(scenes):
