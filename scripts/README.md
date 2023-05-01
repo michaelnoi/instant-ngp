@@ -29,7 +29,7 @@ You may find a source image folder, `transforms.json`, validation rendering resu
 
 
 ## 3D-FRONT NeRF Training
-For scene layout configuration, rendering, and dataset preparation, please refer to our forked [BlenderProc repo](https://github.com/hjk0918/BlenderProc).
+For scene layout configuration, rendering, and dataset preparation, please refer to our forked [BlenderProc repo](https://github.com/hjk0918/BlenderProc/tree/main/scripts).
 
 Once the data is generated using the repo above, `run_3dfront.py` can be used to train the NeRF:
 
