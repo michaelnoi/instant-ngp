@@ -50,10 +50,10 @@ def parse_args():
 	parser.add_argument('--save_snapshot', default='model.msgpack', 
 						help='Save this snapshot after training. recommended extension: .msgpack')
 
-	parser.add_argument('--samples_from_train', default=10, type=int, help='The number of validation views from the training set')
-	parser.add_argument('--num_val_samples', default=10, type=int, help='The number of interpolated validation views')
+	parser.add_argument('--samples_from_train', default=20, type=int, help='The number of validation views from the training set')
+	parser.add_argument('--num_val_samples', default=20, type=int, help='The number of interpolated validation views')
 	parser.add_argument('--screenshot_spp', type=int, default=1, help='Number of samples per pixel in screenshots.')
-	parser.add_argument('--n_steps', type=int, default=30000, help='Number of steps to train for before quitting.')
+	parser.add_argument('--n_steps', type=int, default=50000, help='Number of steps to train for before quitting.')
 
 	args = parser.parse_args()
 	return args

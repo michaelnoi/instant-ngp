@@ -12,14 +12,15 @@ def parse_args():
 
 	parser.add_argument("--hypersim_path", default="", required=True, help="The path to the hypersim folder containing all scenes")
 	parser.add_argument("--metadata_path", default="", required=True, help="The path to the metadata file containing all scenes")
-	parser.add_argument("--run_script_path", default="", required=True, help="The path to the run.py script")
+	parser.add_argument("--run_script_path", default="./run.py", required=True, help="The path to the run.py script")
 	parser.add_argument("--output_path", default="./results", help="The path to the output folder")
 
-	parser.add_argument("--save_snapshot", default="", help="Save this snapshot after training. recommended extension: .msgpack")
-	parser.add_argument("--samples_from_train", default=10, type=int, help="The number of validation views from the training set")
-	parser.add_argument("--num_val_samples", default=10, type=int, help="The number of interpolated validation views")
+	parser.add_argument("--save_snapshot", default="model.msgpack", 
+		     			help="Save this snapshot after training. recommended extension: .msgpack")
+	parser.add_argument("--samples_from_train", default=20, type=int, help="The number of validation views from the training set")
+	parser.add_argument("--num_val_samples", default=20, type=int, help="The number of interpolated validation views")
 	parser.add_argument("--screenshot_spp", type=int, default=1, help="Number of samples per pixel in screenshots.")
-	parser.add_argument("--n_steps", type=int, default=8000, help="Number of steps to train for before quitting.")
+	parser.add_argument("--n_steps", type=int, default=50000, help="Number of steps to train for before quitting.")
 	parser.add_argument("--use_all_cameras", action="store_true", help="Use all cameras in the scene, not just the first one")
 	parser.add_argument("--max_train_samples", type=int, default=None, help="Maximum number of training samples to use")
 
