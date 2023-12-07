@@ -53,8 +53,8 @@ def add_bbox_line(img, world2proj, a, b, color=(0, 0, 255), thickness=2):
     if ha[3] <= 0 or hb[3] <= 0:
         return
 
-    aa = tuple((ha[:2] / ha[3]).astype(np.int))
-    bb = tuple((hb[:2] / hb[3]).astype(np.int))
+    aa = tuple((ha[:2] / ha[3]).astype(np.int32))
+    bb = tuple((hb[:2] / hb[3]).astype(np.int32))
 
     h, w, c = img.shape
     cv2.line(img, aa, bb, color, thickness)
