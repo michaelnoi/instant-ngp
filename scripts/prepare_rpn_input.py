@@ -1,10 +1,12 @@
 import sys
 import os
 
-if os.path.exists('build'):
-    sys.path.append('./build')
-else:
-    sys.path.append('../build')
+# if os.path.exists('build'):
+#     sys.path.append('./build')
+# else:
+#     sys.path.append('../build')
+
+sys.path.append('../instant-ngp/build')
 
 import pyngp as ngp
 
@@ -160,6 +162,8 @@ def get_scene_config(path, testbed, use_dynamic_res=False, margin=0.1, angle=Non
             ori_min_pt, ori_max_pt, min_pt, max_pt = get_scene_bounding_box(dataset, json_dict, margin, angle)
         elif dataset_type == '3dfront':
             min_pt, max_pt = transform_to_ngp_bbox(json_dict['room_bbox'], dataset)
+        elif dataset_type == '3rscan':
+            ori_min_pt, ori_max_pt, min_pt, max_pt = get_scene_bounding_box(dataset, json_dict, margin, angle)
         else:
             raise ValueError('Unknown dataset type: {}'.format(dataset_type))
 
@@ -169,7 +173,7 @@ def get_scene_config(path, testbed, use_dynamic_res=False, margin=0.1, angle=Non
             min_pt, max_pt = min(scene_bbox.min), max(scene_bbox.max)
             scene_bbox = ngp.BoundingBox([min_pt] * 3, [max_pt] * 3)
 
-    if dataset_type == 'hypersim':
+    if dataset_type == 'hypersim' or dataset_type == '3rscan':
         with open(path, 'w') as f:
             json_dict['room_bbox'] = [ori_min_pt.tolist(), ori_max_pt.tolist()]
             json.dump(json_dict, f, indent=2)
@@ -180,7 +184,7 @@ def get_scene_config(path, testbed, use_dynamic_res=False, margin=0.1, angle=Non
     return scene_bbox, view_dirs, ngp_cams
 
 
-def get_rgbsigma(max_res, testbed, view_dir, scene_bbox=None, use_dynamic_res=False, density_to_alpha=False, angle=None):
+def get_rgbsigma(max_res, testbed, view_dir, scene_bbox=None, use_dynamic_res=False, transform_density_to_alpha=False, angle=None):
     res = [max_res] * 3
 
     if use_dynamic_res:
@@ -211,7 +215,7 @@ def get_rgbsigma(max_res, testbed, view_dir, scene_bbox=None, use_dynamic_res=Fa
         density = testbed.compute_density_on_grid(res, scene_bbox, render_aabb_to_local)
         rgba = testbed.compute_rgba_on_grid(res, view_dir, scene_bbox, render_aabb_to_local)
 
-    if density_to_alpha:
+    if transform_density_to_alpha:
         density = density_to_alpha(density)
 
     rgba[:, 3] = density.squeeze()
@@ -227,8 +231,10 @@ def process_scene(args, testbed, dataset, scene_path, model_path, output_path):
                                                        args.margin, dataset_type=args.dataset_type)
 
     rgbsigma_mean = None
-    for i, view_dir in enumerate(view_dirs):
-        res, rgbsigma = get_rgbsigma(args.max_res, testbed, view_dir, scene_bbox, args.use_dynamic_res)
+    for i, view_dir in tqdm(enumerate(view_dirs)):
+        res, rgbsigma = get_rgbsigma(max_res=args.max_res, testbed=testbed, view_dir=view_dir, 
+                                     scene_bbox=scene_bbox, use_dynamic_res=args.use_dynamic_res, 
+                                     transform_density_to_alpha=args.density_to_alpha, angle=None)
         if rgbsigma_mean is None:
             rgbsigma_mean = rgbsigma
         else:
@@ -447,10 +453,10 @@ def process_scene_with_rotation(args, testbed, dataset, scene_path, model_path, 
 def parse_args():
     parser = argparse.ArgumentParser(description="Extract RGB and density from a trained NeRF")
 
-    parser.add_argument("--dataset_type", choices=['hypersim', '3dfront'], required=True)
+    parser.add_argument("--dataset_type", choices=['hypersim', '3dfront', '3rscan'], required=True)
     parser.add_argument("--dataset_path", default="", help="The path to the scenes.")
     parser.add_argument("--model_dir", default="", help="The path to the models.")
-    parser.add_argument("--snapshot_name", default="model.msgpack", help="Name of the snapshot.")
+    parser.add_argument("--snapshot_name", default="base.msgpack", help="Name of the snapshot.")
     parser.add_argument("--output_dir", default="", help="The path to the output directory.")
     parser.add_argument("--max_res", default=256, type=int, help="The maximum resolution of the output.")
     parser.add_argument("--use_dynamic_res", default=False, action="store_true", help="Use different resolutions for each dimension.")
@@ -482,7 +488,7 @@ if __name__ == "__main__":
             print(f'transforms.json not found for {scene}')
             continue
 
-        model_path = os.path.join(args.model_dir, scene, 'train', args.snapshot_name)
+        model_path = os.path.join(args.model_dir, scene, args.snapshot_name)
         if not os.path.exists(model_path):
             print(f'model {model_path} not exists')
             continue
