@@ -175,7 +175,7 @@ def create_validation_json(json_head, img_names, xforms, num_train_samples, num_
 
 def create_json_from_hypersim(scene_path, metadata_path, use_all_cameras=False, num_samples=None, 
                               output_path='./', val_output_path=None, num_train_samples=20, 
-                              num_val_samples=20):
+                              num_val_samples=20, proposals_path=None):
     scene_name = os.path.basename(scene_path)
     os.makedirs(output_path, exist_ok=True)
 
@@ -265,12 +265,18 @@ def create_json_from_hypersim(scene_path, metadata_path, use_all_cameras=False, 
             "transform_matrix": transform_matrices[frame_idx].tolist()
         })
 
-    for i in range(len(extents)):
-        json_dict["bounding_boxes"].append({
-            "extents": extents[i].tolist(),
-            "orientation": orientation[i].tolist(),
-            "position": pos[i].tolist(),
-        })
+    if proposals_path is not None:
+        assert os.path.exists(proposals_path)
+        with open(proposals_path, 'r') as f:
+            proposals_json = json.load(f)
+        json_dict["bounding_boxes"] = proposals_json["bounding_boxes"]
+    else:
+        for i in range(len(extents)):
+            json_dict["bounding_boxes"].append({
+                "extents": extents[i].tolist(),
+                "orientation": orientation[i].tolist(),
+                "position": pos[i].tolist(),
+            })
 
     if val_output_path is not None:
         val_json['bounding_boxes'] = json_dict['bounding_boxes']

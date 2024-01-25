@@ -23,6 +23,8 @@ def parse_args():
 	parser.add_argument("--n_steps", type=int, default=50000, help="Number of steps to train for before quitting.")
 	parser.add_argument("--use_all_cameras", action="store_true", help="Use all cameras in the scene, not just the first one")
 	parser.add_argument("--max_train_samples", type=int, default=None, help="Maximum number of training samples to use")
+	parser.add_argument("--gui", default=False, action="store_true", help="Use the GUI")
+	parser.add_argument("--proposals_path", default="", help="Path to the proposal file")
 
 	args = parser.parse_args()
 	return args
@@ -60,7 +62,8 @@ if __name__ == "__main__":
 											  use_all_cameras=args.use_all_cameras,
 											  num_samples=args.max_train_samples,
 											  num_train_samples=args.samples_from_train,
-											  num_val_samples=args.num_val_samples)
+											  num_val_samples=args.num_val_samples,
+											  proposals_path=args.proposals_path)
 
 		if json_dict is None:
 			print("Error converting scene: {}, skipping...".format(scene))
@@ -97,6 +100,7 @@ if __name__ == "__main__":
 			"--height", str(int(stats_dict["height"][idx])),
 			"--save_log", str(os.path.join(args.output_path, scene, 'train', 'log')),
 			"--show_bbox",
+			"--gui" if args.gui else "",
 		]
 
 		subprocess.run(arg_list)
